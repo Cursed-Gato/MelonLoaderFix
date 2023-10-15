@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -12,6 +13,7 @@ namespace MelonLoader.Il2CppAssemblyGenerator
     {
         internal static string BasePath = null;
         internal static string GameAssemblyPath = null;
+        internal static string FixFolder = null;
         internal static string ManagedPath = null;
 
         internal static HttpClient webClient = null;
@@ -44,14 +46,16 @@ namespace MelonLoader.Il2CppAssemblyGenerator
             if (MelonUtils.IsMac)
                 gameAssemblyName += ".dylib";
 
-                GameAssemblyPath = Path.Combine(MelonEnvironment.GameRootDirectory, gameAssemblyName);
+            GameAssemblyPath = Path.Combine(MelonEnvironment.GameRootDirectory,  gameAssemblyName);
             ManagedPath = MelonEnvironment.MelonManagedDirectory;
+            FixFolder = Path.Combine(MelonEnvironment.GameRootDirectory, "Fix");
 
             BasePath = Path.GetDirectoryName(Assembly.Location);
         }
 
         private static int Run()
         {
+            CopyDataCpp2IL();
             Config.Initialize();
 
             if (!MelonLaunchOptions.Il2CppAssemblyGenerator.OfflineMode)
@@ -156,6 +160,131 @@ namespace MelonLoader.Il2CppAssemblyGenerator
                 File.Move(filepath, newfilepath);
             }
             Config.Save();
+        }
+
+        private static void CopyDataCpp2IL()
+        {
+            Logger.Msg("Copying files for Assembly Generation");
+            string sourceDirectory = Path.GetDirectoryName(Core.GameAssemblyPath) + @"\RotMG Exalt_Data\";
+            string destinationDirectory = Path.GetDirectoryName(Core.FixFolder) + @"\Fix\RotMG Exalt_Data\"; // Replace with the path to your destination folder
+            string fixedMetadata = Path.GetDirectoryName(Core.FixFolder) + @"\Fix\fixed-global-metadata.dat";
+            string pathGameAssemblyR = Path.GetDirectoryName(Core.FixFolder) + @"\GameAssembly.dll";
+
+            try
+            {
+                // Check if GameAssembly exists
+                if (File.Exists(pathGameAssemblyR))
+                {
+                    File.Copy(pathGameAssemblyR, Path.GetDirectoryName(Core.FixFolder) + @"\Fix\GameAssembly.dll", true); // The "true" parameter allows overwriting if the file already exists in the destination folder.
+                    Logger.Msg("GameAssembly copied successfully.");
+                }
+                else
+                {
+                    Logger.Msg("GameAssembly.dll does not exist.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Msg($"An error occurred: {ex.Message}");
+            }
+
+            try
+            {
+                string pathToExeR = Path.GetDirectoryName(Core.FixFolder) + @"\" + Process.GetCurrentProcess().ProcessName + ".exe";
+                // Check if the source file exists
+                if (File.Exists(pathToExeR))
+                {
+                    File.Copy(pathToExeR, Path.GetDirectoryName(Core.FixFolder) + @"\Fix\" + Process.GetCurrentProcess().ProcessName + ".exe", true); // The "true" parameter allows overwriting if the file already exists in the destination folder.
+                    Logger.Msg(Process.GetCurrentProcess().ProcessName + " copied successfully.");
+                }
+                else
+                {
+                    Logger.Msg(Process.GetCurrentProcess().ProcessName + " does not exist.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Msg($"An error occurred: {ex.Message}");
+            }
+
+
+            // Check if the source directory exists
+            if (Directory.Exists(sourceDirectory))
+            {
+                // Create the destination directory if it doesn't exist
+                if (!Directory.Exists(destinationDirectory))
+                {
+                    Directory.CreateDirectory(destinationDirectory);
+                }
+
+                // Get a list of all files and subdirectories in the source directory
+                string[] files = Directory.GetFiles(sourceDirectory);
+                string[] subdirectories = Directory.GetDirectories(sourceDirectory);
+
+                // Copy files
+                foreach (string file in files)
+                {
+                    string fileName = Path.GetFileName(file);
+                    string destFile = Path.Combine(destinationDirectory, fileName);
+                    File.Copy(file, destFile, true);
+                }
+
+                // Copy subdirectories (recursively)
+                foreach (string subdir in subdirectories)
+                {
+                    string subdirName = Path.GetFileName(subdir);
+                    string destSubdir = Path.Combine(destinationDirectory, subdirName);
+                    DirectoryCopy(subdir, destSubdir);
+                }
+
+                Logger.Msg("Folder copied successfully.");
+            }
+            else
+            {
+                Logger.Msg("Source directory does not exist.");
+            }
+
+            //finnaly copy the fixed-global
+            try
+            {
+                // Check if the source file exists
+                if (File.Exists(fixedMetadata))
+                {
+                    File.Copy(fixedMetadata, Path.GetDirectoryName(Core.FixFolder) + @"\Fix\" + Process.GetCurrentProcess().ProcessName  + @"_Data\il2cpp_data\Metadata\global-metadata.dat", true); // The "true" parameter allows overwriting if the file already exists in the destination folder.
+                    Logger.Msg("fixed-global-metadata.dat Moved Successfully.");
+                }
+                else
+                {
+                    Logger.Msg("fixed-global-metadata.dat does not exist, if ran already this is fine");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Msg($"An error occurred: {ex.Message}");
+            }
+
+        }
+
+        // Recursive function to copy subdirectories
+        public static void DirectoryCopy(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+
+            string[] files = Directory.GetFiles(sourceDir);
+            foreach (string file in files)
+            {
+                string fileName = Path.GetFileName(file);
+                string destFile = Path.Combine(destDir, fileName);
+                File.Copy(file, destFile, true);
+            }
+
+            string[] subdirectories = Directory.GetDirectories(sourceDir);
+            foreach (string subdir in subdirectories)
+            {
+                string subdirName = Path.GetFileName(subdir);
+                string destSubdir = Path.Combine(destDir, subdirName);
+                DirectoryCopy(subdir, destSubdir);
+            }
         }
     }
 }

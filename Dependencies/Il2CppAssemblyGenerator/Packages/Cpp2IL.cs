@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
+using Il2CppInterop.Generator.Passes;
 using Semver;
 
 namespace MelonLoader.Il2CppAssemblyGenerator.Packages
@@ -41,16 +43,23 @@ namespace MelonLoader.Il2CppAssemblyGenerator.Packages
             => string.IsNullOrEmpty(Config.Values.DumperVersion) 
             || !Config.Values.DumperVersion.Equals(Version);
 
-        internal override void Cleanup() { }
+        internal override void Cleanup() {
+        }
 
         internal override void Save()
             => Save(ref Config.Values.DumperVersion);
 
         internal override bool Execute()
         {
+            //here is where i whould read in the decrypted file into the global-metadata.dat
+            //at the end replace the original back to run the game properly
             if (SemVersion.Parse(Version) <= SemVersion.Parse("2022.0.999"))
-                return ExecuteOld();
-            return ExecuteNew();
+            {
+                bool returnBool = ExecuteOld();
+                return returnBool;
+            }
+            bool return1Bool = ExecuteNew();
+            return return1Bool;
         }
 
         private bool ExecuteNew()
@@ -58,7 +67,7 @@ namespace MelonLoader.Il2CppAssemblyGenerator.Packages
             if (Execute(new string[] {
                 MelonDebug.IsEnabled() ? "--verbose" : string.Empty,
                 "--game-path",
-                "\"" + Path.GetDirectoryName(Core.GameAssemblyPath) + "\"",
+                "\"" + Path.GetDirectoryName(Core.FixFolder) + @"\Fix" + "\"",
                 "--exe-name",
                 "\"" + Process.GetCurrentProcess().ProcessName + "\"",
                 "--use-processor",
